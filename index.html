@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filter Negatif Gambar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.json"> <!-- Tambahan untuk PWA -->
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        h1 {
+            color: white;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        p {
+            color: #f0f0f0;
+            margin-bottom: 20px;
+            font-weight: 300;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        canvas {
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            max-width: 100%;
+            height: auto;
+            margin: 20px 0;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 10px;
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            background: #f9f9f9;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        input[type="file"]:hover {
+            border-color: #0056b3;
+            background: #e9ecef;
+        }
+        button {
+            margin: 10px;
+            padding: 12px 25px;
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 400;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,123,255,0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,123,255,0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            button {
+                width: 100%;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Filter Negatif Gambar</h1>
+    <p>Pilih gambar dari galeri, terapkan filter negatif, dan simpan ke galeri.</p>
+    
+    <div class="container">
+        <input type="file" id="imageInput" accept="image/*">
+        <button onclick="loadImage()">Muat Gambar</button>
+        
+        <br><br>
+        <canvas id="canvas"></canvas>
+        
+        <br>
+        <button onclick="applyNegativeFilter()">Terapkan Filter Negatif</button>
+        <button onclick="saveToGallery()">Simpan ke Galeri</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let img = new Image();
+
+        // Fungsi untuk memuat gambar dari input file (galeri)
+        function loadImage() {
+            const file = document.getElementById('imageInput').files[0];
+            if (!file) {
+                alert('Pilih gambar terlebih dahulu!');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                img.onload = function() {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Fungsi untuk menerapkan filter negatif
+        function applyNegativeFilter() {
+            if (!img.src) {
+                alert('Muat gambar terlebih dahulu!');
+                return;
+            }
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = 255 - data[i];     // Red
+                data[i + 1] = 255 - data[i + 1]; // Green
+                data[i + 2] = 255 - data[i + 2]; // Blue
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        // Fungsi untuk menyimpan ke galeri (menggunakan File System Access API jika didukung)
+        async function saveToGallery() {
+            if (!img.src) {
+                alert('Muat dan proses gambar terlebih dahulu!');
+                return;
+            }
+            try {
+                // Coba gunakan File System Access API (Chrome-based browsers)
+                if ('showSaveFilePicker' in window) {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: 'gambar_negatif.png',
+                        types: [{
+                            description: 'PNG Image',
+                            accept: { 'image/png': ['.png'] }
+                        }]
+                    });
+                    const writable = await handle.createWritable();
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                    await writable.write(blob);
+                    await writable.close();
+                    alert('Gambar berhasil disimpan ke folder yang dipilih! (Bisa diakses galeri)');
+                } else {
+                    // Fallback: Download biasa
+                    canvas.toBlob(function(blob) {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'gambar_negatif.png';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        alert('Gambar diunduh ke folder Downloads. Pindahkan manual ke galeri jika perlu.');
+                    });
+                }
+            } catch (error) {
+                console.error('Error saving file:', error);
+                alert('Gagal menyimpan. Pastikan browser mendukung fitur ini.');
+            }
+        }
+    </script>
+</body>
+</html>
